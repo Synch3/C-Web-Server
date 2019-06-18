@@ -72,7 +72,10 @@ int send_response(int fd, char *header, char *content_type, void *body, int cont
     content_type,
     content_length,
     timestamp
-    )
+    );
+
+    memcpy(response + response_length, body, content_length);
+    response_length += content_length;
 
     // Send it all!
     int rv = send(fd, response, response_length, 0);
@@ -174,8 +177,20 @@ void handle_http_request(int fd, struct cache *cache)
     ///////////////////
 
     // Read the first two components of the first line of the request 
+
+    sscanf(request, "%s %s", request_type, request_path);
  
     // If GET, handle the get endpoints
+
+    if (strcmp(request_type, "GET") == 0) {
+        // Check if it's /d20 and handle that special case
+        if (strcmp(request_path, "/d20") == 0) {
+            get_d20(fd);
+        } else {
+            // Otherwise serve the requested file by calling get_file()
+            get_file(fd, cache, request_path);
+        }
+}
 
     //    Check if it's /d20 and handle that special case
     //    Otherwise serve the requested file by calling get_file()
