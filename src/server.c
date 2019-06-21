@@ -59,6 +59,24 @@ int send_response(int fd, char *header, char *content_type, void *body, int cont
     // IMPLEMENT ME! //
     ///////////////////
 
+    time_t t = time(NULL);
+    struct tm *local_time = localtime(&t);
+    char *timestamp = asctime(local_time);
+
+    int response_length = sprintf(response, 
+    "%s\n"
+    "Connection: close\n"
+    "Content-Type: %s\n"
+    "Date: %s\n",
+    header,
+    content_type,
+    content_length,
+    timestamp
+    );
+
+    memcpy(response + response_length, body, content_length);
+    response_length += content_length;
+
     // Send it all!
     int rv = send(fd, response, response_length, 0);
 
@@ -81,11 +99,16 @@ void get_d20(int fd)
     // IMPLEMENT ME! //
     ///////////////////
 
+    int random_num = (rand() % 20) + 1;
+    char response_body[16];
+    sprintf(response_body, "%d\n", random_num);
+
     // Use send_response() to send it back as text/plain data
 
     ///////////////////
     // IMPLEMENT ME! //
     ///////////////////
+    send_response(fd, "HTTP/1.1 200 OK", "text/plain", response_body, strlen(response_body));
 }
 
 /**
@@ -122,6 +145,24 @@ void get_file(int fd, struct cache *cache, char *request_path)
     ///////////////////
     // IMPLEMENT ME! //
     ///////////////////
+    char filepath[4096];
+    struct file_data *filedata;
+    char *mime_type;
+
+    snprintf(filepath, sizeof filepath, "%s%s", SERVER_ROOT, request_path);
+
+    filedata = file_load(filepath);
+
+    if (filedata == NULL)
+    {
+        resp_404(fd);
+    }
+    else
+    {
+        mime_type = mime_type_get(filepath);
+        send_response(fd, "HTTP/1.1 200 OK", mime_type, filedata->data, filedata->size);
+        file_free(filedata);
+    }
 }
 
 /**
@@ -159,8 +200,20 @@ void handle_http_request(int fd, struct cache *cache)
     ///////////////////
 
     // Read the first two components of the first line of the request 
+
+    sscanf(request, "%s %s", request_type, request_path);
  
     // If GET, handle the get endpoints
+
+    if (strcmp(request_type, "GET") == 0) {
+        // Check if it's /d20 and handle that special case
+        if (strcmp(request_path, "/d20") == 0) {
+            get_d20(fd);
+        } else {
+            // Otherwise serve the requested file by calling get_file()
+            get_file(fd, cache, request_path);
+        }
+}
 
     //    Check if it's /d20 and handle that special case
     //    Otherwise serve the requested file by calling get_file()
